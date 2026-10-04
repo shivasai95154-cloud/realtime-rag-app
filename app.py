@@ -50,7 +50,6 @@ if uploaded_file and user_question:
                     f"Context Block:\n{context_block}"
                 )
 
-                # FIXED MODEL HERE: Using the active high-speed text production model
                 response = client.chat.completions.create(
                     model="openai/gpt-oss-20b",
                     messages=[
@@ -60,8 +59,9 @@ if uploaded_file and user_question:
                     temperature=0.0
                 )
 
+                # FIXED LINE BELOW: Handles the list index correctly before fetching content
                 st.success("✨ Verified Answer:")
-                st.write(response.choices.message.content)
+                st.write(response.choices[0].message.content)
                 os.remove(temp_file)
 
             except Exception as err:
