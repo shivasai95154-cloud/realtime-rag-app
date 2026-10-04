@@ -1,0 +1,5 @@
+SEC-POL-04: ACCESS CONTROL AND LEAVE POLICY
+1. VISITOR ACCESS AND BADGING
+All non-employee visitors entering the building facility must sign in at the front reception desk, present a valid government-issued photo ID, and wear a red "Visitor" badge at all times. Visitors must be physically escorted by a full-time employee guide anywhere past the primary security turnstiles.
+2. REVOCATION TIMELINE
+Upon employee termination or resignation notice, HR must notify IT operations immediately. Standard application access is revoked at 5:00 PM on the employee's final working day. High-privileged system access (AWS root keys, database production access) is terminated exactly at 9:00 AM on the final day.

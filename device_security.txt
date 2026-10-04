@@ -1,0 +1,7 @@
+SEC-POL-02: ENDPOINT AND HARDWARE SECURITY POLICY
+1. REMOVABLE MEDIA AND USB DRIVES
+To prevent data exfiltration, all corporate laptops have USB mass storage access disabled by default. If an employee requires USB read/write access for client data transfers, they must file an IT ticket under the "Hardware Exception" category, which requires approval from a Director level or above.
+2. ENCRYPTION AND PATCHING
+All laptops are centrally managed via Mobile Device Management (MDM). Hard drives must be encrypted using BitLocker (Windows) or FileVault (Mac). Systems will automatically restart to apply critical operating system security updates every Thursday at 11:00 PM local time.
+3. PHYSICAL CLEAN DESK POLICY
+Employees must lock their screens (Windows Key + L / Command + Control + Q) whenever walking away from their desks. Printed documents containing Personally Identifiable Information (PII) must be shredded immediately after use and never left unattended.

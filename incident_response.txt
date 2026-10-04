@@ -1,0 +1,9 @@
+SEC-POL-03: CYBERSECURITY INCIDENT RESPONSE PROTOCOL
+1. CLASSIFICATION TIER
+- Tier 1 (Low): Single system malware infection or suspected phishing email click.
+- Tier 2 (Medium): Successful unauthorized access to a non-production environment.
+- Tier 3 (High): Ransomware deployment, production database compromise, or active data breach.
+2. REPORTING OBLIGATIONS
+If an employee suspects a Tier 3 security incident, they must immediately call the internal emergency hotline at extension 9119 or send an urgent Slack message to the channel #sec-ops-alert. Do not attempt to clean or turn off the machine manually, as this destroys forensic evidence.
+3. ISOLATION STEP
+For suspected ransomware or malware escalation, the employee must disconnect the network cable or shut off the Wi-Fi card immediately to isolate the host from the corporate local area network (LAN).
