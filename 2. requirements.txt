@@ -1,6 +1,0 @@
-streamlit==1.32.0
-langchain==0.1.12
-langchain-community==0.0.28
-sentence-transformers==2.5.1
-chromadb==0.4.24
-groq==0.4.2
