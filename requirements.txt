@@ -6,4 +6,4 @@ langchain-pinecone
 langchain-groq
 duckduckgo-search
 sentence-transformers
-pinecone-client
+pinecone
