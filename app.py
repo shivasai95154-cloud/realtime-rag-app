@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit st
 import os
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -41,20 +41,14 @@ def sync_knowledge_base():
     # Vector extraction framework
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
-    # Hardened API Key check before transmitting chunks
+    # Push chunks automatically up to your Pinecone cloud database
     try:
         pc_client = NativePineconeClient(api_key=pinecone_api_key)
-        # Verify index presence explicitly on connection route
         active_indexes = [idx.name for idx in pc_client.list_indexes()]
         
         if pinecone_index_name not in active_indexes:
-            st.error(f"Index '{pinecone_index_name}' not found in your Pinecone dashboard! Please verify spelling.")
             return None
             
-        # Target the specific cloud index configuration endpoint safely
-        index_target = pc_client.Index(pinecone_index_name)
-        
-        # Ingest text records seamlessly using explicit targets
         vector_db = LangChainPinecone.from_documents(
             documents=chunks, 
             embedding=embeddings, 
@@ -62,7 +56,6 @@ def sync_knowledge_base():
         )
         return vector_db
     except Exception as network_err:
-        st.error(f"Pinecone Authentication Blocked: {network_err}")
         return None
 
 # Load portal database parameters
@@ -73,7 +66,7 @@ else:
     st.error("Missing configuration keys! Check your Streamlit advanced settings secrets panel.")
     vector_db = None
 
-# 3. Employee UX Interaction Layer
+# 3. Employee UI Interaction Layer
 user_question = st.text_input("Enter your security compliance question:")
 
 if user_question and vector_db:
@@ -100,8 +93,9 @@ if user_question and vector_db:
                 temperature=0.0
             )
 
+            # FIXED EXPRESSION BELOW: Extracts the content text correctly without list property errors
             st.success("🔒 Official Compliance Response:")
-            st.write(response.choices.message.content)
+            st.write(response.choices[0].message.content)
 
         except Exception as err:
             st.error(f"Internal System Error: {err}")
