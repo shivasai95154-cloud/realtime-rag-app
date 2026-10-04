@@ -96,7 +96,6 @@ if user_question := st.chat_input("Ask a compliance question..."):
             message_placeholder = st.empty()
             with st.spinner("Searching internal protocols..."):
                 try:
-                    # OPTIMIZED LINE BELOW: Expanded search breadth to k=6 for comprehensive multi-file lookups
                     retriever = vector_db.as_retriever(search_kwargs={"k": 6})
                     matched_chunks = retriever.invoke(user_question)
                     context_block = "\n\n".join([c.page_content for c in matched_chunks])
@@ -124,12 +123,13 @@ if user_question := st.chat_input("Ask a compliance question..."):
                         temperature=0.0
                     )
 
+                    # FIXED BLOCK: Explicitly indices elements to extract output safely
                     if hasattr(response, 'choices') and isinstance(response.choices, list):
-                        answer = response.choices.message.content
+                        answer = response.choices[0].message.content
                     elif isinstance(response, dict) and "choices" in response:
-                        answer = response["choices"]["message"]["content"]
+                        answer = response["choices"][0]["message"]["content"]
                     else:
-                        answer = response.choices.message.content
+                        answer = response.choices[0].message.content
 
                     message_placeholder.markdown(answer)
                     st.session_state.messages.append({"role": "assistant", "content": answer})
