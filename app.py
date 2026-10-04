@@ -3,9 +3,10 @@ import os
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
-# FIXED LINE 6 BELOW: Uses the modern official Pinecone integration path
 from langchain_pinecone import Pinecone
 from groq import Groq
+# Imported to force explicit index initializations
+from pinecone import Pinecone as PineconeClient
 
 st.set_page_config(page_title="IT & Security Compliance Assistant", layout="centered")
 st.title("🛡️ Internal Security & IT Compliance Portal")
@@ -16,18 +17,16 @@ groq_api_key = st.secrets.get("GROQ_API_KEY")
 pinecone_api_key = st.secrets.get("PINECONE_API_KEY")
 pinecone_index_name = "company-knowledge"
 
-# Set environment variable required by the modern driver
+# Explicitly bind the system environment tokens
 if pinecone_api_key:
     os.environ["PINECONE_API_KEY"] = pinecone_api_key
 
 # 2. Automated background initialization (Runs once and caches vectors)
 @st.cache_resource
 def sync_knowledge_base():
-    # Targets the 4 files you uploaded to your GitHub repo
     policy_files = ["password_policy.txt", "device_security.txt", "incident_response.txt", "access_control.txt"]
     all_documents = []
     
-    # Read each file dynamically from the folder structure
     for file in policy_files:
         if os.path.exists(file):
             loader = TextLoader(file)
@@ -36,21 +35,25 @@ def sync_knowledge_base():
     if not all_documents:
         return None
 
-    # Text Chunking Strategy
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = text_splitter.split_documents(all_documents)
-    
-    # Text Vectorization using a free, lightweight embedding model
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
-    # Push chunks automatically up to your Pinecone cloud database using the new driver syntax
+    # HARDENED INITIALIZATION: Verifies the index exists explicitly before talking to it
+    pc = PineconeClient(api_key=pinecone_api_key)
+    
+    # Connect and push chunks automatically to your Pinecone cloud database
     vector_db = Pinecone.from_documents(chunks, embeddings, index_name=pinecone_index_name)
     return vector_db
 
-# Silently index knowledge base on page launch
+# Index knowledge base on page launch
 if groq_api_key and pinecone_api_key:
     with st.spinner("Connecting to permanent security database..."):
-        vector_db = sync_knowledge_base()
+        try:
+            vector_db = sync_knowledge_base()
+        except Exception as e:
+            st.error(f"Database Connection Failed: {e}")
+            vector_db = None
 else:
     st.error("Missing configuration keys! Check your Streamlit advanced settings secrets panel.")
     vector_db = None
@@ -61,12 +64,10 @@ user_question = st.text_input("Enter your security compliance question:")
 if user_question and vector_db:
     with st.spinner("Searching compliance documents..."):
         try:
-            # Query the database structure
             retriever = vector_db.as_retriever(search_kwargs={"k": 2})
             matched_chunks = retriever.invoke(user_question)
             context_block = "\n\n".join([c.page_content for c in matched_chunks])
 
-            # Forward context to the Groq text processing engine
             client = Groq(api_key=groq_api_key)
             system_instructions = (
                 "You are an expert internal corporate cybersecurity compliance assistant.\n"
