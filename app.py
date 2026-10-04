@@ -23,26 +23,32 @@ if pinecone_api_key:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 3. UPGRADE 1: Automated Multi-Format Ingestion (Text & PDFs)
+# 3. FIXED: Automated Multi-Format Ingestion with Format Fallbacks
 @st.cache_resource
 def sync_knowledge_base():
-    # Scan current folder directory for policy files
     policy_files = [
         "password_policy.txt", 
         "device_security.txt", 
         "incident_response.txt", 
         "access_control.txt",
-        "sample_handbook.pdf" # Place any PDF with this name in your repo to parse it!
+        "sample_handbook.pdf"
     ]
     all_documents = []
     
     for file in policy_files:
         if os.path.exists(file):
+            # SAFE FALLBACK CHECK: If it claims to be a PDF, try parsing it. If it fails, treat it as a text file!
             if file.endswith('.pdf'):
-                loader = PyPDFLoader(file)
+                try:
+                    loader = PyPDFLoader(file)
+                    all_documents.extend(loader.load())
+                except Exception:
+                    # If pypdf crashes because it is actually a text file in disguise, read it as text
+                    loader = TextLoader(file)
+                    all_documents.extend(loader.load())
             else:
                 loader = TextLoader(file)
-            all_documents.extend(loader.load())
+                all_documents.extend(loader.load())
             
     if not all_documents:
         return None
@@ -75,15 +81,12 @@ else:
     st.error("Configuration keys missing in Streamlit secrets panel!")
     vector_db = None
 
-# 4. UPGRADE 2: ChatGPT-Style Chat Interface
-# Render older messages from history log
+# 4. ChatGPT-Style Chat Interface
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Capture new employee questions via chat input box
 if user_question := st.chat_input("Ask a compliance question..."):
-    # Append user question immediately to the screen layout
     st.session_state.messages.append({"role": "user", "content": user_question})
     with st.chat_message("user"):
         st.markdown(user_question)
@@ -95,14 +98,12 @@ if user_question := st.chat_input("Ask a compliance question..."):
             message_placeholder = st.empty()
             with st.spinner("Searching internal protocols..."):
                 try:
-                    # UPGRADE 3: Increased search breadth (k=4) for better coverage
                     retriever = vector_db.as_retriever(search_kwargs={"k": 4})
                     matched_chunks = retriever.invoke(user_question)
                     context_block = "\n\n".join([c.page_content for c in matched_chunks])
 
-                    # Include chat historical thread parameters to give the bot memory
                     chat_history_context = ""
-                    for msg in st.session_state.messages[-3:]: # Grab last 3 conversational turns
+                    for msg in st.session_state.messages[-3:]:
                         chat_history_context += f"{msg['role'].upper()}: {msg['content']}\n"
 
                     client = Groq(api_key=groq_api_key)
@@ -124,13 +125,10 @@ if user_question := st.chat_input("Ask a compliance question..."):
                         temperature=0.0
                     )
 
-                    answer = response.choices[0].message.content
+                    answer = response.choices.message.content
                     message_placeholder.markdown(answer)
-                    
-                    # Store the bot's response in chat history memory
                     st.session_state.messages.append({"role": "assistant", "content": answer})
 
-                    # UPGRADE 4: Interactive Collapsible Visual Audit Tracer
                     with st.expander("🔍 View Raw Vector Matches (Audit Trace Source Documents)"):
                         for i, chunk in enumerate(matched_chunks):
                             source_name = chunk.metadata.get('source', 'Unknown Document')
