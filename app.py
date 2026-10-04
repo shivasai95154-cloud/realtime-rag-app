@@ -3,7 +3,8 @@ import os
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Pinecone
+# FIXED LINE 6 BELOW: Uses the modern official Pinecone integration path
+from langchain_pinecone import Pinecone
 from groq import Groq
 
 st.set_page_config(page_title="IT & Security Compliance Assistant", layout="centered")
@@ -14,6 +15,10 @@ st.write("Ask any question about corporate passwords, incident reports, device r
 groq_api_key = st.secrets.get("GROQ_API_KEY")
 pinecone_api_key = st.secrets.get("PINECONE_API_KEY")
 pinecone_index_name = "company-knowledge"
+
+# Set environment variable required by the modern driver
+if pinecone_api_key:
+    os.environ["PINECONE_API_KEY"] = pinecone_api_key
 
 # 2. Automated background initialization (Runs once and caches vectors)
 @st.cache_resource
@@ -38,8 +43,8 @@ def sync_knowledge_base():
     # Text Vectorization using a free, lightweight embedding model
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
-    # Push chunks automatically up to your Pinecone cloud database
-    vector_db = Pinecone.from_documents(chunks, embeddings, index_name=pinecone_index_name, pinecone_api_key=pinecone_api_key)
+    # Push chunks automatically up to your Pinecone cloud database using the new driver syntax
+    vector_db = Pinecone.from_documents(chunks, embeddings, index_name=pinecone_index_name)
     return vector_db
 
 # Silently index knowledge base on page launch
