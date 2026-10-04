@@ -5,7 +5,6 @@ from langchain_groq import ChatGroq
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-# FIXED LINE 8 BELOW: Changed HuggingFaceEmbedembeddings to HuggingFaceEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_pinecone import Pinecone as LangChainPinecone
 from pinecone import Pinecone as NativePineconeClient
@@ -42,8 +41,6 @@ def get_vector_db():
     
     try:
         pc = NativePineconeClient(api_key=pinecone_api_key)
-        
-        # Pull active lists using the modern client layout structure
         active_indexes = [idx.name for idx in pc.indexes.list()] if hasattr(pc, 'indexes') else [idx.name for idx in pc.list_indexes()]
         
         if pinecone_index_name not in active_indexes: 
@@ -91,8 +88,8 @@ if user_input := st.chat_input("Ask the Agent anything..."):
     with st.chat_message("assistant"):
         status_placeholder = st.empty()
         
-        # Invoke Mixtral-8x7b to orchestrate function calling parameters
-        llm = ChatGroq(api_key=groq_api_key, model_name="mixtral-8x7b-32768", temperature=0.0)
+        # FIXED LINE BELOW: Swapped out decommissioned model name for an active versatile LLM
+        llm = ChatGroq(api_key=groq_api_key, model_name="llama-3.3-70b-versatile", temperature=0.0)
         
         tools = [search_internal_company_policies, search_public_internet_compliance]
         llm_with_tools = llm.bind_tools(tools)
