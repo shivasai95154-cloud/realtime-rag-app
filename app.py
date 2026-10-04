@@ -24,7 +24,7 @@ if uploaded_file and user_question:
     if not groq_api_key:
         st.error("Please provide your Groq API Key to run the model!")
     else:
-        with st.spinner("Analyzing document and querying Llama-3..."):
+        with st.spinner("Analyzing document and querying active model..."):
             try:
                 temp_file = "temp_rag_data.txt"
                 with open(temp_file, "wb") as f:
@@ -40,8 +40,6 @@ if uploaded_file and user_question:
                 vector_db = Chroma.from_documents(chunks, embeddings)
 
                 retriever = vector_db.as_retriever(search_kwargs={"k": 2})
-                
-                # FIXED LINE BELOW: Changed from get_relevant_documents to invoke
                 matched_chunks = retriever.invoke(user_question)
                 
                 context_block = "\n\n".join([c.page_content for c in matched_chunks])
@@ -52,8 +50,9 @@ if uploaded_file and user_question:
                     f"Context Block:\n{context_block}"
                 )
 
+                # UPDATED LINE BELOW: Swapped out decommissioned model name
                 response = client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model="llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": system_instructions},
                         {"role": "user", "content": user_question}
