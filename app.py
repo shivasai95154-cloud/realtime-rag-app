@@ -5,9 +5,9 @@ from langchain_groq import ChatGroq
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbedembeddings
+# FIXED LINE 8 BELOW: Changed HuggingFaceEmbedembeddings to HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_pinecone import Pinecone as LangChainPinecone
-# MODIFIED IMPORT PATH: Matches the new clean official SDK layout
 from pinecone import Pinecone as NativePineconeClient
 
 st.set_page_config(page_title="Agentic Compliance Officer", layout="centered")
@@ -41,10 +41,9 @@ def get_vector_db():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
     try:
-        # Initializing the modern native client
         pc = NativePineconeClient(api_key=pinecone_api_key)
         
-        # Pull active lists using the modern client list layout structure
+        # Pull active lists using the modern client layout structure
         active_indexes = [idx.name for idx in pc.indexes.list()] if hasattr(pc, 'indexes') else [idx.name for idx in pc.list_indexes()]
         
         if pinecone_index_name not in active_indexes: 
