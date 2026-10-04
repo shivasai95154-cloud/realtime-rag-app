@@ -40,7 +40,10 @@ if uploaded_file and user_question:
                 vector_db = Chroma.from_documents(chunks, embeddings)
 
                 retriever = vector_db.as_retriever(search_kwargs={"k": 2})
-                matched_chunks = retriever.get_relevant_documents(user_question)
+                
+                # FIXED LINE BELOW: Changed from get_relevant_documents to invoke
+                matched_chunks = retriever.invoke(user_question)
+                
                 context_block = "\n\n".join([c.page_content for c in matched_chunks])
 
                 client = Groq(api_key=groq_api_key)
