@@ -3,25 +3,24 @@ import os
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_pinecone import Pinecone
+from langchain_pinecone import Pinecone as LangChainPinecone
 from groq import Groq
-# Imported to force explicit index initializations
-from pinecone import Pinecone as PineconeClient
+from pinecone import Pinecone as NativePineconeClient
 
 st.set_page_config(page_title="IT & Security Compliance Assistant", layout="centered")
 st.title("🛡️ Internal Security & IT Compliance Portal")
 st.write("Ask any question about corporate passwords, incident reports, device restrictions, or visitor access.")
 
-# 1. Load keys securely from your Streamlit Secrets panel
+# 1. Fetching credentials cleanly
 groq_api_key = st.secrets.get("GROQ_API_KEY")
 pinecone_api_key = st.secrets.get("PINECONE_API_KEY")
 pinecone_index_name = "company-knowledge"
 
-# Explicitly bind the system environment tokens
+# Force set global system environment parameters
 if pinecone_api_key:
     os.environ["PINECONE_API_KEY"] = pinecone_api_key
 
-# 2. Automated background initialization (Runs once and caches vectors)
+# 2. Hardened synchronization strategy
 @st.cache_resource
 def sync_knowledge_base():
     policy_files = ["password_policy.txt", "device_security.txt", "incident_response.txt", "access_control.txt"]
@@ -35,30 +34,46 @@ def sync_knowledge_base():
     if not all_documents:
         return None
 
+    # Text segment breakdown rules
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = text_splitter.split_documents(all_documents)
+    
+    # Vector extraction framework
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
-    # HARDENED INITIALIZATION: Verifies the index exists explicitly before talking to it
-    pc = PineconeClient(api_key=pinecone_api_key)
-    
-    # Connect and push chunks automatically to your Pinecone cloud database
-    vector_db = Pinecone.from_documents(chunks, embeddings, index_name=pinecone_index_name)
-    return vector_db
+    # Hardened API Key check before transmitting chunks
+    try:
+        pc_client = NativePineconeClient(api_key=pinecone_api_key)
+        # Verify index presence explicitly on connection route
+        active_indexes = [idx.name for idx in pc_client.list_indexes()]
+        
+        if pinecone_index_name not in active_indexes:
+            st.error(f"Index '{pinecone_index_name}' not found in your Pinecone dashboard! Please verify spelling.")
+            return None
+            
+        # Target the specific cloud index configuration endpoint safely
+        index_target = pc_client.Index(pinecone_index_name)
+        
+        # Ingest text records seamlessly using explicit targets
+        vector_db = LangChainPinecone.from_documents(
+            documents=chunks, 
+            embedding=embeddings, 
+            index_name=pinecone_index_name
+        )
+        return vector_db
+    except Exception as network_err:
+        st.error(f"Pinecone Authentication Blocked: {network_err}")
+        return None
 
-# Index knowledge base on page launch
+# Load portal database parameters
 if groq_api_key and pinecone_api_key:
     with st.spinner("Connecting to permanent security database..."):
-        try:
-            vector_db = sync_knowledge_base()
-        except Exception as e:
-            st.error(f"Database Connection Failed: {e}")
-            vector_db = None
+        vector_db = sync_knowledge_base()
 else:
     st.error("Missing configuration keys! Check your Streamlit advanced settings secrets panel.")
     vector_db = None
 
-# 3. Employee UI Interaction Layer
+# 3. Employee UX Interaction Layer
 user_question = st.text_input("Enter your security compliance question:")
 
 if user_question and vector_db:
