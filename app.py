@@ -88,8 +88,8 @@ if user_input := st.chat_input("Ask the Agent anything..."):
     with st.chat_message("assistant"):
         status_placeholder = st.empty()
         
-        # FIXED LINE BELOW: Swapped out decommissioned model name for an active versatile LLM
-        llm = ChatGroq(api_key=groq_api_key, model_name="llama-3.3-70b-versatile", temperature=0.0)
+        # BULLETPROOF REFACTOR: Swapped out the gated model name for a globally active tool model ID
+        llm = ChatGroq(api_key=groq_api_key, model_name="openai/gpt-oss-20b", temperature=0.0)
         
         tools = [search_internal_company_policies, search_public_internet_compliance]
         llm_with_tools = llm.bind_tools(tools)
