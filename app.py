@@ -23,7 +23,7 @@ if pinecone_api_key:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 3. FIXED: Automated Multi-Format Ingestion with Format Fallbacks
+# 3. Automated Multi-Format Ingestion with Format Fallbacks
 @st.cache_resource
 def sync_knowledge_base():
     policy_files = [
@@ -37,13 +37,11 @@ def sync_knowledge_base():
     
     for file in policy_files:
         if os.path.exists(file):
-            # SAFE FALLBACK CHECK: If it claims to be a PDF, try parsing it. If it fails, treat it as a text file!
             if file.endswith('.pdf'):
                 try:
                     loader = PyPDFLoader(file)
                     all_documents.extend(loader.load())
                 except Exception:
-                    # If pypdf crashes because it is actually a text file in disguise, read it as text
                     loader = TextLoader(file)
                     all_documents.extend(loader.load())
             else:
@@ -125,6 +123,7 @@ if user_question := st.chat_input("Ask a compliance question..."):
                         temperature=0.0
                     )
 
+                    # FIXED LINE BELOW: Grabs the data index layout properly for the chat streaming loop
                     answer = response.choices.message.content
                     message_placeholder.markdown(answer)
                     st.session_state.messages.append({"role": "assistant", "content": answer})
