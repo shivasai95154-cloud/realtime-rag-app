@@ -50,9 +50,9 @@ if uploaded_file and user_question:
                     f"Context Block:\n{context_block}"
                 )
 
-                # UPDATED LINE BELOW: Swapped out decommissioned model name
+                # FIXED MODEL HERE: Using the active high-speed text production model
                 response = client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
+                    model="openai/gpt-oss-20b",
                     messages=[
                         {"role": "system", "content": system_instructions},
                         {"role": "user", "content": user_question}
