@@ -96,7 +96,8 @@ if user_question := st.chat_input("Ask a compliance question..."):
             message_placeholder = st.empty()
             with st.spinner("Searching internal protocols..."):
                 try:
-                    retriever = vector_db.as_retriever(search_kwargs={"k": 4})
+                    # OPTIMIZED LINE BELOW: Expanded search breadth to k=6 for comprehensive multi-file lookups
+                    retriever = vector_db.as_retriever(search_kwargs={"k": 6})
                     matched_chunks = retriever.invoke(user_question)
                     context_block = "\n\n".join([c.page_content for c in matched_chunks])
 
@@ -108,7 +109,7 @@ if user_question := st.chat_input("Ask a compliance question..."):
                     system_instructions = (
                         "You are an expert internal corporate cybersecurity compliance assistant.\n"
                         "Answer the employee query using ONLY the provided text context blocks.\n"
-                        "Be direct, highly professional, and cite the specific policy section codes (e.g., SEC-POL-01) where available.\n"
+                        "Be direct, highly professional, and cite the specific policy section codes (e.g., SEC-POL-01, SEC-POL-04) where available.\n"
                         "Consider the ongoing conversation context when generating responses.\n\n"
                         f"Recent Conversation Context:\n{chat_history_context}\n"
                         f"Document Context Blocks:\n{context_block}"
@@ -123,16 +124,12 @@ if user_question := st.chat_input("Ask a compliance question..."):
                         temperature=0.0
                     )
 
-                    # BULLETPROOF REFACTOR: Safely extract response text using dict layout matching
                     if hasattr(response, 'choices') and isinstance(response.choices, list):
-                        # If choices is returned as a list of objects
-                        answer = response.choices[0].message.content
+                        answer = response.choices.message.content
                     elif isinstance(response, dict) and "choices" in response:
-                        # If response is returned as a raw dictionary object
-                        answer = response["choices"][0]["message"]["content"]
+                        answer = response["choices"]["message"]["content"]
                     else:
-                        # Fallback try block to guarantee reading text strings
-                        answer = response.choices[0].message.content
+                        answer = response.choices.message.content
 
                     message_placeholder.markdown(answer)
                     st.session_state.messages.append({"role": "assistant", "content": answer})
