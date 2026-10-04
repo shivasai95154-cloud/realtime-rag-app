@@ -1,17 +1,19 @@
 import streamlit as st
 import os
-from langchain_community.document_loaders import TextLoader, PyPDFLoader
+from langchain_core.tools import tool
+from langchain_groq import ChatGroq
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_pinecone import Pinecone as LangChainPinecone
-from groq import Groq
 from pinecone import Pinecone as NativePineconeClient
 
-st.set_page_config(page_title="Enterprise IT & Security Compliance Portal", layout="centered")
-st.title("🛡️ Enterprise Security & IT Compliance Portal")
-st.write("Chat with your corporate guidelines in real time. Powered by an automated multi-doc RAG stack.")
+st.set_page_config(page_title="Agentic Compliance Officer", layout="centered")
+st.title("🤖 Autonomous Agentic Compliance Officer")
+st.write("This agent can autonomously choose to search local policy databases or browse the web to answer complex mixed questions.")
 
-# 1. Fetching configurations cleanly
+# 1. Credentials Setup
 groq_api_key = st.secrets.get("GROQ_API_KEY")
 pinecone_api_key = st.secrets.get("PINECONE_API_KEY")
 pinecone_index_name = "company-knowledge"
@@ -19,127 +21,111 @@ pinecone_index_name = "company-knowledge"
 if pinecone_api_key:
     os.environ["PINECONE_API_KEY"] = pinecone_api_key
 
-# 2. Initialize Conversation Chat History Memory
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# 3. Automated Multi-Format Ingestion with Format Fallbacks
+# 2. Database Sync 
 @st.cache_resource
-def sync_knowledge_base():
-    policy_files = [
-        "password_policy.txt", 
-        "device_security.txt", 
-        "incident_response.txt", 
-        "access_control.txt",
-        "sample_handbook.pdf"
-    ]
+def get_vector_db():
+    policy_files = ["password_policy.txt", "device_security.txt", "incident_response.txt", "access_control.txt", "sample_handbook.pdf"]
     all_documents = []
-    
     for file in policy_files:
         if os.path.exists(file):
-            if file.endswith('.pdf'):
-                try:
-                    loader = PyPDFLoader(file)
-                    all_documents.extend(loader.load())
-                except Exception:
-                    loader = TextLoader(file)
-                    all_documents.extend(loader.load())
-            else:
+            try:
                 loader = TextLoader(file)
                 all_documents.extend(loader.load())
-            
-    if not all_documents:
-        return None
-
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
+            except Exception:
+                continue
+    if not all_documents: return None
+    
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = text_splitter.split_documents(all_documents)
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
     try:
-        pc_client = NativePineconeClient(api_key=pinecone_api_key)
-        active_indexes = [idx.name for idx in pc_client.list_indexes()]
-        
-        if pinecone_index_name not in active_indexes:
-            return None
-            
-        vector_db = LangChainPinecone.from_documents(
-            documents=chunks, 
-            embedding=embeddings, 
-            index_name=pinecone_index_name
-        )
-        return vector_db
+        pc = NativePineconeClient(api_key=pinecone_api_key)
+        if pinecone_index_name not in [idx.name for idx in pc.list_indexes()]: return None
+        return LangChainPinecone.from_documents(chunks, embeddings, index_name=pinecone_index_name)
     except Exception:
         return None
 
-# Establish background pipeline sync
-if groq_api_key and pinecone_api_key:
-    with st.spinner("Synchronizing permanent security database..."):
-        vector_db = sync_knowledge_base()
-else:
-    st.error("Configuration keys missing in Streamlit secrets panel!")
-    vector_db = None
+vector_db = get_vector_db()
 
-# 4. ChatGPT-Style Chat Interface
-for msg in st.session_state.messages:
+# 3. DEFINE AGENT TOOLS (Autonomous Actions)
+
+@tool
+def search_internal_company_policies(query: str) -> str:
+    """Use this tool to search internal corporate policy documents regarding passwords, USB device rules, visitor badging, and travel expenses."""
+    if not vector_db:
+        return "Internal policy database is currently unavailable."
+    retriever = vector_db.as_retriever(search_kwargs={"k": 3})
+    matched_docs = retriever.invoke(query)
+    return "\n\n".join([doc.page_content for doc in matched_docs])
+
+@tool
+def search_public_internet_compliance(query: str) -> str:
+    """Use this tool ONLY if the internal company policies do not contain the answer, and you need to look up public global cybersecurity standards like SOC2, ISO27001, or NIST guidelines."""
+    try:
+        search_tool = DuckDuckGoSearchRun()
+        return search_tool.invoke(query)
+    except Exception as e:
+        return f"Web search failed: {e}"
+
+# 4. AGENT LOGIC CORE (The Reasoning Loop)
+if "agent_messages" not in st.session_state:
+    st.session_state.agent_messages = []
+
+for msg in st.session_state.agent_messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if user_question := st.chat_input("Ask a compliance question..."):
-    st.session_state.messages.append({"role": "user", "content": user_question})
+if user_input := st.chat_input("Ask the Agent anything..."):
+    st.session_state.agent_messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
-        st.markdown(user_question)
+        st.markdown(user_input)
 
-    if not vector_db:
-        st.error("Database connection unavailable.")
-    else:
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            with st.spinner("Searching internal protocols..."):
-                try:
-                    retriever = vector_db.as_retriever(search_kwargs={"k": 6})
-                    matched_chunks = retriever.invoke(user_question)
-                    context_block = "\n\n".join([c.page_content for c in matched_chunks])
-
-                    chat_history_context = ""
-                    for msg in st.session_state.messages[-3:]:
-                        chat_history_context += f"{msg['role'].upper()}: {msg['content']}\n"
-
-                    client = Groq(api_key=groq_api_key)
-                    system_instructions = (
-                        "You are an expert internal corporate cybersecurity compliance assistant.\n"
-                        "Answer the employee query using ONLY the provided text context blocks.\n"
-                        "Be direct, highly professional, and cite the specific policy section codes (e.g., SEC-POL-01, SEC-POL-04) where available.\n"
-                        "Consider the ongoing conversation context when generating responses.\n\n"
-                        f"Recent Conversation Context:\n{chat_history_context}\n"
-                        f"Document Context Blocks:\n{context_block}"
-                    )
-
-                    response = client.chat.completions.create(
-                        model="openai/gpt-oss-20b",
-                        messages=[
-                            {"role": "system", "content": system_instructions},
-                            {"role": "user", "content": user_question}
-                        ],
-                        temperature=0.0
-                    )
-
-                    # FIXED BLOCK: Explicitly indices elements to extract output safely
-                    if hasattr(response, 'choices') and isinstance(response.choices, list):
-                        answer = response.choices[0].message.content
-                    elif isinstance(response, dict) and "choices" in response:
-                        answer = response["choices"][0]["message"]["content"]
-                    else:
-                        answer = response.choices[0].message.content
-
-                    message_placeholder.markdown(answer)
-                    st.session_state.messages.append({"role": "assistant", "content": answer})
-
-                    with st.expander("🔍 View Raw Vector Matches (Audit Trace Source Documents)"):
-                        for i, chunk in enumerate(matched_chunks):
-                            source_name = chunk.metadata.get('source', 'Unknown Document')
-                            st.markdown(f"**Match {i+1} From:** `{source_name}`")
-                            st.caption(chunk.page_content)
-                            st.divider()
-
-                except Exception as err:
-                    st.error(f"Internal Pipeline Error: {err}")
+    with st.chat_message("assistant"):
+        status_placeholder = st.empty()
+        
+        # We invoke Mixtral-8x7b because it natively supports complex Function Calling / Tool Selection
+        llm = ChatGroq(api_key=groq_api_key, model_name="mixtral-8x7b-32768", temperature=0.0)
+        
+        tools = [search_internal_company_policies, search_public_internet_compliance]
+        llm_with_tools = llm.bind_tools(tools)
+        
+        with st.spinner("Agent is reasoning and selecting optimal tools..."):
+            try:
+                messages = [
+                    {"role": "system", "content": "You are an autonomous Agentic Compliance Officer. You must evaluate the user query, choose the appropriate tool(s) to fetch facts, analyze the tool observations, and provide a comprehensive final corporate breakdown."},
+                    {"role": "user", "content": user_input}
+                ]
+                
+                response = llm_with_tools.invoke(messages)
+                
+                if response.tool_calls:
+                    for tool_call in response.tool_calls:
+                        tool_name = tool_call["name"]
+                        tool_args = tool_call["args"]
+                        
+                        status_placeholder.info(f"🧠 Agent Decision: Executing Tool `{tool_name}` with parameters: {tool_args}")
+                        
+                        if tool_name == "search_internal_company_policies":
+                            q_str = tool_args.get("query", str(tool_args)) if isinstance(tool_args, dict) else str(tool_args)
+                            tool_result = search_internal_company_policies.invoke(q_str)
+                        elif tool_name == "search_public_internet_compliance":
+                            q_str = tool_args.get("query", str(tool_args)) if isinstance(tool_args, dict) else str(tool_args)
+                            tool_result = search_public_internet_compliance.invoke(q_str)
+                        else:
+                            tool_result = "Unknown tool execution attempt."
+                            
+                        messages.append(response)
+                        messages.append({"role": "tool", "tool_call_id": tool_call["id"], "name": tool_name, "content": tool_result})
+                    
+                    final_response = llm.invoke(messages)
+                    answer = final_response.content
+                else:
+                    answer = response.content
+                
+                status_placeholder.empty()
+                st.markdown(answer)
+                st.session_state.agent_messages.append({"role": "assistant", "content": answer})
+                
+            except Exception as agent_err:
+                st.error(f"Agent Execution Loop Crashed: {agent_err}")
