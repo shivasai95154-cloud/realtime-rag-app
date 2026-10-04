@@ -1,4 +1,4 @@
-import streamlit st
+import streamlit as st
 import os
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -93,9 +93,8 @@ if user_question and vector_db:
                 temperature=0.0
             )
 
-            # FIXED EXPRESSION BELOW: Extracts the content text correctly without list property errors
             st.success("🔒 Official Compliance Response:")
-            st.write(response.choices[0].message.content)
+            st.write(response.choices.message.content)
 
         except Exception as err:
             st.error(f"Internal System Error: {err}")
