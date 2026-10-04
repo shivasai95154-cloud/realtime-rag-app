@@ -93,8 +93,9 @@ if user_question and vector_db:
                 temperature=0.0
             )
 
+            # FIXED LINE BELOW: Added choices[0] to extract data out of the response list correctly
             st.success("🔒 Official Compliance Response:")
-            st.write(response.choices.message.content)
+            st.write(response.choices[0].message.content)
 
         except Exception as err:
             st.error(f"Internal System Error: {err}")
