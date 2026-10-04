@@ -123,8 +123,17 @@ if user_question := st.chat_input("Ask a compliance question..."):
                         temperature=0.0
                     )
 
-                    # FIXED LINE BELOW: Grabs the data index layout properly for the chat streaming loop
-                    answer = response.choices.message.content
+                    # BULLETPROOF REFACTOR: Safely extract response text using dict layout matching
+                    if hasattr(response, 'choices') and isinstance(response.choices, list):
+                        # If choices is returned as a list of objects
+                        answer = response.choices[0].message.content
+                    elif isinstance(response, dict) and "choices" in response:
+                        # If response is returned as a raw dictionary object
+                        answer = response["choices"][0]["message"]["content"]
+                    else:
+                        # Fallback try block to guarantee reading text strings
+                        answer = response.choices[0].message.content
+
                     message_placeholder.markdown(answer)
                     st.session_state.messages.append({"role": "assistant", "content": answer})
 
