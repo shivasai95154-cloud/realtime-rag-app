@@ -88,7 +88,7 @@ if user_input := st.chat_input("Ask the Agent anything..."):
     with st.chat_message("assistant"):
         status_placeholder = st.empty()
         
-        # BULLETPROOF REFACTOR: Swapped out the gated model name for a globally active tool model ID
+        # Instantiate base model configuration
         llm = ChatGroq(api_key=groq_api_key, model_name="openai/gpt-oss-20b", temperature=0.0)
         
         tools = [search_internal_company_policies, search_public_internet_compliance]
@@ -122,7 +122,9 @@ if user_input := st.chat_input("Ask the Agent anything..."):
                         messages.append(response)
                         messages.append({"role": "tool", "tool_call_id": tool_call["id"], "name": tool_name, "content": tool_result})
                     
-                    final_response = llm.invoke(messages)
+                    # HARDENED FIXED PASS: Explicitly overrides tool choices to 'none' to guarantee compilation without server 400 glitches
+                    llm_final = llm.bind_tools(tools, tool_choice="none")
+                    final_response = llm_final.invoke(messages)
                     answer = final_response.content
                 else:
                     answer = response.content
