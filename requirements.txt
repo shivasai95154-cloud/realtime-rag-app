@@ -1,6 +1,6 @@
 streamlit
 langchain
 langchain-community
+langchain-pinecone
 sentence-transformers
-chromadb
 groq
