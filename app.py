@@ -5,8 +5,9 @@ from langchain_groq import ChatGroq
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbedembeddings
 from langchain_pinecone import Pinecone as LangChainPinecone
+# MODIFIED IMPORT PATH: Matches the new clean official SDK layout
 from pinecone import Pinecone as NativePineconeClient
 
 st.set_page_config(page_title="Agentic Compliance Officer", layout="centered")
@@ -40,8 +41,15 @@ def get_vector_db():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
     try:
+        # Initializing the modern native client
         pc = NativePineconeClient(api_key=pinecone_api_key)
-        if pinecone_index_name not in [idx.name for idx in pc.list_indexes()]: return None
+        
+        # Pull active lists using the modern client list layout structure
+        active_indexes = [idx.name for idx in pc.indexes.list()] if hasattr(pc, 'indexes') else [idx.name for idx in pc.list_indexes()]
+        
+        if pinecone_index_name not in active_indexes: 
+            return None
+            
         return LangChainPinecone.from_documents(chunks, embeddings, index_name=pinecone_index_name)
     except Exception:
         return None
@@ -84,7 +92,7 @@ if user_input := st.chat_input("Ask the Agent anything..."):
     with st.chat_message("assistant"):
         status_placeholder = st.empty()
         
-        # We invoke Mixtral-8x7b because it natively supports complex Function Calling / Tool Selection
+        # Invoke Mixtral-8x7b to orchestrate function calling parameters
         llm = ChatGroq(api_key=groq_api_key, model_name="mixtral-8x7b-32768", temperature=0.0)
         
         tools = [search_internal_company_policies, search_public_internet_compliance]
